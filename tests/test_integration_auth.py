@@ -98,3 +98,10 @@ def test_validation_error_login(client):
     assert response.status_code == 422, response.text
     data = response.json()
     assert "detail" in data
+
+
+def test_request_email_confirmation(client):
+    response = client.post("api/auth/request_email", json={"email": user_data["email"]})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["message"] == "Ваша електронна пошта вже підтверджена"

@@ -49,7 +49,7 @@ async def read_contact(
     contact = await contact_service.get_contact(contact_id, user)
     if contact is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="contact not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found"
         )
     return contact
 
@@ -75,7 +75,7 @@ async def update_contact(
     contact = await contact_service.update_contact(contact_id, body, user)
     if contact is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="contact not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found"
         )
     return contact
 
@@ -91,7 +91,7 @@ async def update_contact(
     contact = await contact_service.update_contact(contact_id, body, user)
     if contact is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="contact not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found"
         )
     return contact
 
@@ -106,6 +106,6 @@ async def remove_contact(
     contact = await contact_service.remove_contact(contact_id, user)
     if contact is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="contact not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found"
         )
     return contact
