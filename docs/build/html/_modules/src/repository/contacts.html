@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>src.repository.contacts &#8212; Contact Management REST API  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/nature.css?v=279e0f84" />
+    <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Contact Management REST API  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.repository.contacts</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for src.repository.contacts</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Contact repository module for database operations.</span>
+
+<span class="sd">This module provides the data access layer for contact-related operations,</span>
+<span class="sd">implementing CRUD operations and specialized queries for contact management.</span>
+<span class="sd">It uses SQLAlchemy for database interactions and provides type-safe operations.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="n">select</span><span class="p">,</span> <span class="n">and_</span><span class="p">,</span> <span class="n">extract</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.asyncio</span> <span class="kn">import</span> <span class="n">AsyncSession</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">date</span><span class="p">,</span> <span class="n">timedelta</span>
+
+<span class="kn">from</span> <span class="nn">src.database.models</span> <span class="kn">import</span> <span class="n">Contact</span><span class="p">,</span> <span class="n">User</span>
+<span class="kn">from</span> <span class="nn">src.schemas</span> <span class="kn">import</span> <span class="n">ContactModel</span><span class="p">,</span> <span class="n">ContactUpdate</span>
+
+
+<div class="viewcode-block" id="ContactRepository">
+<a class="viewcode-back" href="../../../index.html#src.repository.contacts.ContactRepository">[docs]</a>
+<span class="k">class</span> <span class="nc">ContactRepository</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Repository class for contact-related database operations.</span>
+
+<span class="sd">    This class handles all database interactions for contacts, including:</span>
+<span class="sd">    - CRUD operations (Create, Read, Update, Delete)</span>
+<span class="sd">    - Search functionality</span>
+<span class="sd">    - Birthday notifications</span>
+<span class="sd">    - User-specific contact filtering</span>
+
+<span class="sd">    All operations are user-scoped for data isolation.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        db (AsyncSession): SQLAlchemy async database session.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ContactRepository.__init__">
+<a class="viewcode-back" href="../../../index.html#src.repository.contacts.ContactRepository.__init__">[docs]</a>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session</span><span class="p">:</span> <span class="n">AsyncSession</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the repository with a database session.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            session (AsyncSession): SQLAlchemy async session for database operations.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">db</span> <span class="o">=</span> <span class="n">session</span></div>
+
+
+<div class="viewcode-block" id="ContactRepository.get_contacts">
+<a class="viewcode-back" href="../../../index.html#src.repository.contacts.ContactRepository.get_contacts">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">get_contacts</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">skip</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">user</span><span class="p">:</span> <span class="n">User</span><span class="p">,</span> <span class="n">q</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Contact</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieve a paginated list of contacts with optional search.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            skip (int): Number of records to skip (offset).</span>
+<span class="sd">            limit (int): Maximum number of records to return.</span>
+<span class="sd">            user (User): User whose contacts to retrieve.</span>
+<span class="sd">            q (str | None, optional): Search query for filtering contacts.</span>
+<span class="sd">                Searches in first_name, last_name, and email fields.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List[Contact]: List of contacts matching the criteria.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">stmt</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">Contact</span><span class="p">)</span><span class="o">.</span><span class="n">filter_by</span><span class="p">(</span><span class="n">user</span><span class="o">=</span><span class="n">user</span><span class="p">)</span><span class="o">.</span><span class="n">offset</span><span class="p">(</span><span class="n">skip</span><span class="p">)</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="n">limit</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">q</span><span class="p">:</span>
+            <span class="n">stmt</span> <span class="o">=</span> <span class="n">stmt</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">Contact</span><span class="o">.</span><span class="n">first_name</span><span class="o">.</span><span class="n">ilike</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;%</span><span class="si">{</span><span class="n">q</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">))</span>
+                <span class="o">|</span> <span class="p">(</span><span class="n">Contact</span><span class="o">.</span><span class="n">last_name</span><span class="o">.</span><span class="n">ilike</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;%</span><span class="si">{</span><span class="n">q</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">))</span>
+                <span class="o">|</span> <span class="p">(</span><span class="n">Contact</span><span class="o">.</span><span class="n">email</span><span class="o">.</span><span class="n">ilike</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;%</span><span class="si">{</span><span class="n">q</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">))</span>
+            <span class="p">)</span>
+
+        <span class="n">contacts</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">stmt</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">contacts</span><span class="o">.</span><span class="n">scalars</span><span class="p">()</span><span class="o">.</span><span class="n">all</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="ContactRepository.get_contact_by_id">
+<a class="viewcode-back" href="../../../index.html#src.repository.contacts.ContactRepository.get_contact_by_id">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">get_contact_by_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">contact_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">user</span><span class="p">:</span> <span class="n">User</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Contact</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieve a specific contact by ID.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            contact_id (int): ID of the contact to retrieve.</span>
+<span class="sd">            user (User): User who owns the contact.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Contact | None: Contact if found and owned by user, None otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">stmt</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">Contact</span><span class="p">)</span><span class="o">.</span><span class="n">filter_by</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">contact_id</span><span class="p">,</span> <span class="n">user</span><span class="o">=</span><span class="n">user</span><span class="p">)</span>
+        <span class="n">contact</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">stmt</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">contact</span><span class="o">.</span><span class="n">scalar_one_or_none</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="ContactRepository.create_contact">
+<a class="viewcode-back" href="../../../index.html#src.repository.contacts.ContactRepository.create_contact">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">create_contact</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">body</span><span class="p">:</span> <span class="n">ContactModel</span><span class="p">,</span> <span class="n">user</span><span class="p">:</span> <span class="n">User</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Contact</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a new contact.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            body (ContactModel): Contact data for creation.</span>
+<span class="sd">            user (User): User who will own the contact.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Contact: Created contact instance with all fields populated.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">contact</span> <span class="o">=</span> <span class="n">Contact</span><span class="p">(</span><span class="o">**</span><span class="n">body</span><span class="o">.</span><span class="n">dict</span><span class="p">(</span><span class="n">exclude_unset</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">user</span><span class="o">=</span><span class="n">user</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">contact</span><span class="p">)</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">refresh</span><span class="p">(</span><span class="n">contact</span><span class="p">)</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_contact_by_id</span><span class="p">(</span><span class="n">contact</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">user</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ContactRepository.remove_contact">
+<a class="viewcode-back" href="../../../index.html#src.repository.contacts.ContactRepository.remove_contact">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">remove_contact</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">contact_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">user</span><span class="p">:</span> <span class="n">User</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Contact</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Delete a contact.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            contact_id (int): ID of the contact to delete.</span>
+<span class="sd">            user (User): User who owns the contact.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Contact | None: Deleted contact if found and owned by user, None otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">contact</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_contact_by_id</span><span class="p">(</span><span class="n">contact_id</span><span class="p">,</span> <span class="n">user</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">contact</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">contact</span><span class="p">)</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">contact</span></div>
+
+
+<div class="viewcode-block" id="ContactRepository.update_contact">
+<a class="viewcode-back" href="../../../index.html#src.repository.contacts.ContactRepository.update_contact">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">update_contact</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">contact_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">body</span><span class="p">:</span> <span class="n">ContactUpdate</span><span class="p">,</span> <span class="n">user</span><span class="p">:</span> <span class="n">User</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Contact</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update an existing contact.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            contact_id (int): ID of the contact to update.</span>
+<span class="sd">            body (ContactUpdate): Updated contact data.</span>
+<span class="sd">            user (User): User who owns the contact.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Contact | None: Updated contact if found and owned by user, None otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">contact</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_contact_by_id</span><span class="p">(</span><span class="n">contact_id</span><span class="p">,</span> <span class="n">user</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">contact</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">body</span><span class="o">.</span><span class="n">dict</span><span class="p">(</span><span class="n">exclude_unset</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="n">contact</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">refresh</span><span class="p">(</span><span class="n">contact</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">contact</span></div>
+
+
+<div class="viewcode-block" id="ContactRepository.get_birthday_list">
+<a class="viewcode-back" href="../../../index.html#src.repository.contacts.ContactRepository.get_birthday_list">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">get_birthday_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">user</span><span class="p">:</span> <span class="n">User</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Contact</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get contacts with birthdays in the next 7 days.</span>
+
+<span class="sd">        This method finds contacts whose birthdays fall within the next week,</span>
+<span class="sd">        including today. It handles month transitions correctly.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            user (User): User whose contacts to check.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List[Contact]: List of contacts with upcoming birthdays.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">today</span> <span class="o">=</span> <span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()</span>
+        <span class="n">next_week</span> <span class="o">=</span> <span class="n">today</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">7</span><span class="p">)</span>
+
+        <span class="n">stmt</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">Contact</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">and_</span><span class="p">(</span>
+                <span class="n">Contact</span><span class="o">.</span><span class="n">user</span> <span class="o">==</span> <span class="n">user</span><span class="p">,</span>
+                <span class="n">Contact</span><span class="o">.</span><span class="n">birthday</span><span class="o">.</span><span class="n">isnot</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
+                <span class="p">(</span>
+                    <span class="p">(</span><span class="n">extract</span><span class="p">(</span><span class="s2">&quot;month&quot;</span><span class="p">,</span> <span class="n">Contact</span><span class="o">.</span><span class="n">birthday</span><span class="p">)</span> <span class="o">==</span> <span class="n">today</span><span class="o">.</span><span class="n">month</span><span class="p">)</span>
+                    <span class="o">&amp;</span> <span class="p">(</span><span class="n">extract</span><span class="p">(</span><span class="s2">&quot;day&quot;</span><span class="p">,</span> <span class="n">Contact</span><span class="o">.</span><span class="n">birthday</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">today</span><span class="o">.</span><span class="n">day</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="o">|</span> <span class="p">(</span>
+                    <span class="p">(</span><span class="n">extract</span><span class="p">(</span><span class="s2">&quot;month&quot;</span><span class="p">,</span> <span class="n">Contact</span><span class="o">.</span><span class="n">birthday</span><span class="p">)</span> <span class="o">==</span> <span class="n">next_week</span><span class="o">.</span><span class="n">month</span><span class="p">)</span>
+                    <span class="o">&amp;</span> <span class="p">(</span><span class="n">extract</span><span class="p">(</span><span class="s2">&quot;day&quot;</span><span class="p">,</span> <span class="n">Contact</span><span class="o">.</span><span class="n">birthday</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">next_week</span><span class="o">.</span><span class="n">day</span><span class="p">)</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">contacts</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">stmt</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">contacts</span><span class="o">.</span><span class="n">scalars</span><span class="p">()</span><span class="o">.</span><span class="n">all</span><span class="p">()</span></div>
+</div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Contact Management REST API  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.repository.contacts</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2025, mariashubna.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    </div>
+  </body>
+</html>
