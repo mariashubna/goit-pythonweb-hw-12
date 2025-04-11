@@ -10,6 +10,8 @@ from jose import JWTError, jwt
 from src.database.db import get_db
 from src.conf.config import settings
 from src.services.users import UserService
+from src.database.models import User
+from src.schemas import User as UserResponse
 import json
 import redis
 
@@ -79,55 +81,6 @@ async def create_access_token(data: dict, expires_delta: Optional[int] = None):
     return encoded_jwt
 
 
-# async def get_current_user(
-#     token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
-# ):
-#     """Get the current authenticated user from a JWT token and verify it with Redis.
-
-#     This is a FastAPI dependency that validates the JWT token and returns the user.
-
-#     Args:
-#         token (str): JWT token from Authorization header.
-#         db (Session): Database session.
-
-#     Raises:
-#         HTTPException: 401 if token is invalid, expired, revoked, or user not found.
-
-#     Returns:
-#         User: Current authenticated user.
-#     """
-#     credentials_exception = HTTPException(
-#         status_code=status.HTTP_401_UNAUTHORIZED,
-#         detail="Could not validate credentials",
-#         headers={"WWW-Authenticate": "Bearer"},
-#     )
-
-#     try:
-#         payload = jwt.decode(
-#             token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]
-#         )
-#         username: str = payload.get("sub")
-#         if username is None:
-#             raise credentials_exception
-#     except JWTError:
-#         raise credentials_exception
-
-#     redis_key = f"user_token:{username}"
-#     stored_token = r.get(redis_key)
-#     if stored_token is None or stored_token.decode("utf-8") != token:
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Token is invalid or expired. Please log in again.",
-#             headers={"WWW-Authenticate": "Bearer"},
-#         )
-
-#     user = await UserService.get_user_by_username(username=username, db=db)
-#     if user is None:
-#         raise credentials_exception
-
-#     return user
-
-
 async def get_current_user(
     token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
 ):
@@ -166,15 +119,31 @@ async def get_current_user(
     if user_data:
         # Якщо користувач є в кеші, повертаємо дані
         user_dict = json.loads(user_data.decode("utf-8"))
-        return User(**user_dict)
+        # Instead of creating a new User instance, get the existing one from DB
+        user_service = UserService(db)
+        user = await user_service.get_user_by_username(username=username)
+        if user is None:
+            raise credentials_exception
+        return user
 
     # Якщо користувача немає в кеші, отримуємо з бази даних
-    user = await UserService.get_user_by_username(username=username, db=db)
+    user_service = UserService(db)
+    user = await user_service.get_user_by_username(username=username)
     if user is None:
         raise credentials_exception
 
+    # Convert to a dictionary for Redis storage
+    user_data = {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "created_at": user.created_at.isoformat(),
+        "avatar": user.avatar,
+        "confirmed": user.confirmed
+    }
+    
     # Кешуємо користувача в Redis на 15 хвилин
-    r.set(redis_key, json.dumps(user.dict()), ex=900)
+    r.set(redis_key, json.dumps(user_data), ex=900)
 
     return user
 

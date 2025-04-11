@@ -24,10 +24,11 @@ from slowapi.errors import RateLimitExceeded
 
 from src.api import utils, contacts, users
 
+
 app = FastAPI(
     title="Contact Management API",
     description="REST API for managing contacts with user authentication",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 # Configure CORS
