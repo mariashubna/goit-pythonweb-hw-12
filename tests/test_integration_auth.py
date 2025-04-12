@@ -1,5 +1,5 @@
 from unittest.mock import Mock
-
+from src.database.models import UserRole
 import pytest
 from sqlalchemy import select
 
@@ -10,6 +10,7 @@ user_data = {
     "username": "agent007",
     "email": "agent007@gmail.com",
     "password": "12345678",
+    "role": UserRole.USER,
 }
 
 
@@ -104,4 +105,51 @@ def test_request_email_confirmation(client):
     response = client.post("api/auth/request_email", json={"email": user_data["email"]})
     assert response.status_code == 200
     data = response.json()
-    assert data["message"] == "Ваша електронна пошта вже підтверджена"
+    assert data["message"] == "Перевірте свою електронну пошту для підтвердження"
+
+
+def test_signup_email_sent(client, monkeypatch):
+    """Test that email is sent during registration."""
+    mock_send_email = Mock()
+    monkeypatch.setattr("src.api.auth.send_email", mock_send_email)
+
+    test_user = {
+        "username": "newuser",
+        "email": "newuser@gmail.com",
+        "password": "12345678",
+        "role": UserRole.USER,
+    }
+
+    response = client.post("api/auth/register", json=test_user)
+    assert response.status_code == 201
+
+    mock_send_email.assert_called_once()
+    call_args = mock_send_email.call_args[0]
+    assert call_args[0] == test_user["email"]
+    assert call_args[1] == test_user["username"]
+    assert "http" in str(call_args[2])
+
+
+def test_signup_weak_password(client):
+    weak_user_data = {
+        "username": "weakuser",
+        "email": "weakuser@gmail.com",
+        "password": "1",
+        "role": UserRole.USER,
+    }
+    response = client.post("api/auth/register", json=weak_user_data)
+    assert response.status_code == 422, response.text
+    data = response.json()
+    assert "detail" in data
+
+
+def test_signup_missing_field(client):
+    incomplete_user_data = {
+        "username": "user_without_email",
+        "password": "12345678",
+        "role": UserRole.USER,
+    }
+    response = client.post("api/auth/register", json=incomplete_user_data)
+    assert response.status_code == 422, response.text  # Ошибка валидации
+    data = response.json()
+    assert "detail" in data

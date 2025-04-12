@@ -10,8 +10,7 @@ from jose import JWTError, jwt
 from src.database.db import get_db
 from src.conf.config import settings
 from src.services.users import UserService
-from src.database.models import User
-from src.schemas import User as UserResponse
+from src.database.models import User, UserRole
 import json
 import redis
 
@@ -139,9 +138,9 @@ async def get_current_user(
         "email": user.email,
         "created_at": user.created_at.isoformat(),
         "avatar": user.avatar,
-        "confirmed": user.confirmed
+        "confirmed": user.confirmed,
     }
-    
+
     # Кешуємо користувача в Redis на 15 хвилин
     r.set(redis_key, json.dumps(user_data), ex=900)
 
@@ -203,3 +202,34 @@ async def create_password_reset_token(data: dict) -> str:
     to_encode.update({"exp": expire})
     token = jwt.encode(to_encode, settings.JWT_SECRET, settings.JWT_ALGORITHM)
     return token
+
+
+def get_current_admin_user(current_user: User = Depends(get_current_user)):
+    """Check if the current user is an administrator.
+
+    This is a FastAPI dependency that can be used to protect admin-only endpoints.
+    It builds on top of get_current_user to first authenticate the user,
+    then verifies if they have administrator privileges.
+
+    Args:
+        current_user (User): The authenticated user from get_current_user dependency.
+            This parameter is injected by FastAPI's dependency system.
+
+    Returns:
+        User: The current user if they are an administrator.
+
+    Raises:
+        HTTPException: 403 Forbidden if the user is not an administrator.
+            This includes a Ukrainian error message "Недостатньо прав доступу"
+            (Insufficient access rights).
+
+    Example:
+        ```python
+        @router.get("/admin-only")
+        async def admin_endpoint(admin: User = Depends(get_current_admin_user)):
+            return {"message": "You are an admin"}
+        ```
+    """
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Недостатньо прав доступу")
+    return current_user

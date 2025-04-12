@@ -23,6 +23,26 @@ conf = ConnectionConfig(
 
 
 async def send_email(email: EmailStr, username: str, host: str):
+    """Send an email verification message to a newly registered user.
+
+    Creates a verification token and sends an HTML email using a template.
+    The email contains a link that the user must click to verify their email address.
+
+    Args:
+        email (EmailStr): User's email address to send verification to
+        username (str): User's username for personalization
+        host (str): Base URL of the application for constructing verification link
+
+    Note:
+        Uses the verify_email.html template with the following context:
+        - host: Base URL for constructing the verification link
+        - username: User's name for personalization
+        - token: JWT token for email verification
+
+    Raises:
+        ConnectionErrors: If there are issues connecting to the email server
+            (errors are currently logged but not propagated)
+    """
     try:
         token_verification = create_email_token({"sub": email})
         message = MessageSchema(
@@ -39,7 +59,7 @@ async def send_email(email: EmailStr, username: str, host: str):
         fm = FastMail(conf)
         await fm.send_message(message, template_name="verify_email.html")
     except ConnectionErrors as err:
-        print(err)
+        print(err)  # Consider using proper logging here
 
 
 async def send_password_reset_email(email: EmailStr, username: str, host: str, token: str):

@@ -12,6 +12,7 @@ Each model includes field validations and type checking using Pydantic.
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from datetime import date, datetime
 from typing import Optional
+from src.database.models import UserRole
 
 
 class ContactModel(BaseModel):
@@ -95,7 +96,7 @@ class User(BaseModel):
     username: str
     email: str
     avatar: str
-
+    role: UserRole
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -114,7 +115,8 @@ class UserCreate(BaseModel):
 
     username: str
     email: str
-    password: str
+    password: str = Field(min_length=6)
+    role: UserRole
 
 
 # Схема для токену
@@ -168,4 +170,4 @@ class PasswordReset(BaseModel):
     """
 
     token: str
-    new_password: str = Field(min_length=3)
+    new_password: str = Field(min_length=6)

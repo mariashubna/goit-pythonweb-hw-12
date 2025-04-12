@@ -7,7 +7,7 @@ from sqlalchemy.pool import StaticPool
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
 from main import app
-from src.database.models import Base, User
+from src.database.models import Base, User, UserRole
 from src.database.db import get_db
 from src.services.auth import create_access_token, Hash
 
@@ -27,6 +27,14 @@ test_user = {
     "username": "deadpool",
     "email": "deadpool@example.com",
     "password": "12345678",
+    "role": UserRole.USER
+}
+
+admin_user = {
+    "username": "admin",
+    "email": "admin@example.com",
+    "password": "admin12345",
+    "role": UserRole.ADMIN
 }
 
 
@@ -37,6 +45,7 @@ def init_models_wrap():
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
         async with TestingSessionLocal() as session:
+            # Create regular test user
             hash_password = Hash().get_password_hash(test_user["password"])
             current_user = User(
                 username=test_user["username"],
@@ -44,8 +53,22 @@ def init_models_wrap():
                 hashed_password=hash_password,
                 confirmed=True,
                 avatar="<https://twitter.com/gravatar>",
+                role=test_user["role"]
             )
             session.add(current_user)
+
+            # Create admin test user
+            admin_hash_password = Hash().get_password_hash(admin_user["password"])
+            admin = User(
+                username=admin_user["username"],
+                email=admin_user["email"],
+                hashed_password=admin_hash_password,
+                confirmed=True,
+                avatar="<https://twitter.com/admin_gravatar>",
+                role=admin_user["role"]
+            )
+            session.add(admin)
+            
             await session.commit()
 
     asyncio.run(init_models())

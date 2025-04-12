@@ -155,6 +155,21 @@
 <span class="sd">            User: Updated user instance with new avatar URL.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">repository</span><span class="o">.</span><span class="n">update_avatar_url</span><span class="p">(</span><span class="n">email</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="UserService.update_password">
+<a class="viewcode-back" href="../../../index.html#src.services.users.UserService.update_password">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">update_password</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">email</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">hashed_password</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update a user&#39;s password.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            email (str): Email of the user to update.</span>
+<span class="sd">            hashed_password (str): New hashed password to set.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            User: Updated user instance.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">repository</span><span class="o">.</span><span class="n">update_password</span><span class="p">(</span><span class="n">email</span><span class="p">,</span> <span class="n">hashed_password</span><span class="p">)</span></div>
 </div>
 
 </pre></div>

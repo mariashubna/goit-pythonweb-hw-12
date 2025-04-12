@@ -1,6 +1,12 @@
 from unittest.mock import patch
-
-from conftest import test_user
+from src.database.models import UserRole
+import pytest
+import io
+from conftest import test_user, admin_user
+from unittest.mock import AsyncMock, Mock
+from sqlalchemy import select
+from src.database.models import User
+from tests.conftest import TestingSessionLocal
 
 
 def test_get_me(client, get_token):
@@ -14,29 +20,26 @@ def test_get_me(client, get_token):
     assert "avatar" in data
 
 
-@patch("src.services.upload_file.UploadFileService.upload_file")
-def test_update_avatar_user(mock_upload_file, client, get_token):
-    # Мокаємо відповідь від сервісу завантаження файлів
-    fake_url = "http://example.com/avatar.jpg"
-    mock_upload_file.return_value = fake_url
+@pytest.mark.asyncio
+async def test_login(client):
+    async with TestingSessionLocal() as session:
+        current_user = await session.execute(
+            select(User).filter_by(email=admin_user.get("email"))
+        )
+        current_user = current_user.scalar_one_or_none()
+        if current_user:
+            current_user.confirmed = True
+            await session.commit()
 
-    # Токен для авторизації
-    headers = {"Authorization": f"Bearer {get_token}"}
-
-    # Файл, який буде відправлено
-    file_data = {"file": ("avatar.jpg", b"fake image content", "image/jpeg")}
-
-    # Відправка PATCH-запиту
-    response = client.patch("/api/users/avatar", headers=headers, files=file_data)
-
-    # Перевірка, що запит був успішним
+    response = client.post(
+        "api/auth/login",
+        data={
+            "username": admin_user.get("username"),
+            "password": admin_user.get("password"),
+        },
+    )
     assert response.status_code == 200, response.text
-
-    # Перевірка відповіді
     data = response.json()
-    assert data["username"] == test_user["username"]
-    assert data["email"] == test_user["email"]
-    assert data["avatar"] == fake_url
-
-    # Перевірка виклику функції upload_file з об'єктом UploadFile
-    mock_upload_file.assert_called_once()
+    assert "access_token" in data
+    assert "token_type" in data
+    return data

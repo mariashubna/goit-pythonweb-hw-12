@@ -186,6 +186,26 @@
         <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
         <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">refresh</span><span class="p">(</span><span class="n">user</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">user</span></div>
+
+
+<div class="viewcode-block" id="UserRepository.update_password">
+<a class="viewcode-back" href="../../../index.html#src.repository.users.UserRepository.update_password">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">update_password</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">email</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">hashed_password</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">User</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update a user&#39;s password.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            email (str): Email of the user to update.</span>
+<span class="sd">            hashed_password (str): New hashed password to set.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            User: Updated user instance.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">user</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_user_by_email</span><span class="p">(</span><span class="n">email</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">user</span><span class="p">:</span>
+            <span class="n">user</span><span class="o">.</span><span class="n">hashed_password</span> <span class="o">=</span> <span class="n">hashed_password</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">refresh</span><span class="p">(</span><span class="n">user</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">user</span></div>
 </div>
 
 </pre></div>
