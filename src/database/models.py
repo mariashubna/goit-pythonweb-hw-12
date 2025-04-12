@@ -32,6 +32,7 @@ class Contact(Base):
         user_id (int): Foreign key referencing the user who owns this contact.
         user (User): Relationship to the User model.
     """
+
     __tablename__ = "contacts"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -66,6 +67,7 @@ class User(Base):
         avatar (str): Path to the user's avatar image file.
         confirmed (bool): Flag indicating whether the user's email has been confirmed.
     """
+
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     username: Mapped[str] = mapped_column(String(100), unique=True)

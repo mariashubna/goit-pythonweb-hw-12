@@ -143,3 +143,29 @@ class RequestEmail(BaseModel):
     """
 
     email: EmailStr
+
+
+class PasswordResetRequest(BaseModel):
+    """Model for password reset requests.
+
+    Used when a user requests a password reset via email.
+
+    Attributes:
+        email (EmailStr): Email address of the account to reset
+    """
+
+    email: EmailStr
+
+
+class PasswordReset(BaseModel):
+    """Model for password reset operations.
+
+    Used when setting a new password with a valid reset token.
+
+    Attributes:
+        token (str): Password reset token from email
+        new_password (str): New password to set
+    """
+
+    token: str
+    new_password: str = Field(min_length=3)

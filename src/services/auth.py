@@ -187,3 +187,19 @@ async def get_email_from_token(token: str):
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Неправильний токен для перевірки електронної пошти",
         )
+
+
+async def create_password_reset_token(data: dict) -> str:
+    """Create a JWT token for password reset.
+
+    Args:
+        data (dict): Data to encode in the token, typically includes email address.
+
+    Returns:
+        str: Encoded JWT token with 1-hour expiration.
+    """
+    to_encode = data.copy()
+    expire = datetime.now(UTC) + timedelta(hours=1)
+    to_encode.update({"exp": expire})
+    token = jwt.encode(to_encode, settings.JWT_SECRET, settings.JWT_ALGORITHM)
+    return token
