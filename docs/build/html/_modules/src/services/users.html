@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>src.services.users &#8212; Contact Management REST API  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/nature.css?v=279e0f84" />
+    <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Contact Management REST API  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.services.users</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for src.services.users</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">sqlalchemy.ext.asyncio</span> <span class="kn">import</span> <span class="n">AsyncSession</span>
+<span class="kn">from</span> <span class="nn">libgravatar</span> <span class="kn">import</span> <span class="n">Gravatar</span>
+
+<span class="kn">from</span> <span class="nn">src.repository.users</span> <span class="kn">import</span> <span class="n">UserRepository</span>
+<span class="kn">from</span> <span class="nn">src.schemas</span> <span class="kn">import</span> <span class="n">UserCreate</span>
+
+
+<div class="viewcode-block" id="UserService">
+<a class="viewcode-back" href="../../../index.html#src.services.users.UserService">[docs]</a>
+<span class="k">class</span> <span class="nc">UserService</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Service class for handling user-related business logic.</span>
+
+<span class="sd">    This class provides high-level operations for user management, including</span>
+<span class="sd">    user creation, retrieval, and profile updates. It uses Gravatar for default</span>
+<span class="sd">    user avatars and delegates database operations to UserRepository.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        repository (UserRepository): Repository instance for user database operations.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="UserService.__init__">
+<a class="viewcode-back" href="../../../index.html#src.services.users.UserService.__init__">[docs]</a>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">:</span> <span class="n">AsyncSession</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize UserService with database session.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            db (AsyncSession): SQLAlchemy async database session.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">repository</span> <span class="o">=</span> <span class="n">UserRepository</span><span class="p">(</span><span class="n">db</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="UserService.create_user">
+<a class="viewcode-back" href="../../../index.html#src.services.users.UserService.create_user">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">create_user</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">body</span><span class="p">:</span> <span class="n">UserCreate</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a new user with Gravatar avatar.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            body (UserCreate): User creation data including email, username, and password.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            User: Created user instance with generated avatar.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">avatar</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">g</span> <span class="o">=</span> <span class="n">Gravatar</span><span class="p">(</span><span class="n">body</span><span class="o">.</span><span class="n">email</span><span class="p">)</span>
+            <span class="n">avatar</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">get_image</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">repository</span><span class="o">.</span><span class="n">create_user</span><span class="p">(</span><span class="n">body</span><span class="p">,</span> <span class="n">avatar</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="UserService.get_user_by_id">
+<a class="viewcode-back" href="../../../index.html#src.services.users.UserService.get_user_by_id">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">get_user_by_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">user_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieve a user by their ID.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            user_id (int): User&#39;s unique identifier.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            User | None: User instance if found, None otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">repository</span><span class="o">.</span><span class="n">get_user_by_id</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="UserService.get_user_by_username">
+<a class="viewcode-back" href="../../../index.html#src.services.users.UserService.get_user_by_username">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">get_user_by_username</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">username</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieve a user by their username.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            username (str): User&#39;s unique username.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            User | None: User instance if found, None otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">repository</span><span class="o">.</span><span class="n">get_user_by_username</span><span class="p">(</span><span class="n">username</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="UserService.get_user_by_email">
+<a class="viewcode-back" href="../../../index.html#src.services.users.UserService.get_user_by_email">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">get_user_by_email</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">email</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieve a user by their email address.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            email (str): User&#39;s unique email address.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            User | None: User instance if found, None otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">repository</span><span class="o">.</span><span class="n">get_user_by_email</span><span class="p">(</span><span class="n">email</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="UserService.confirmed_email">
+<a class="viewcode-back" href="../../../index.html#src.services.users.UserService.confirmed_email">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">confirmed_email</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">email</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Mark a user&#39;s email as confirmed.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            email (str): Email address to confirm.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            User: Updated user instance with confirmed email.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">repository</span><span class="o">.</span><span class="n">confirmed_email</span><span class="p">(</span><span class="n">email</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="UserService.update_avatar_url">
+<a class="viewcode-back" href="../../../index.html#src.services.users.UserService.update_avatar_url">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">update_avatar_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">email</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update a user&#39;s avatar URL.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            email (str): Email of the user to update.</span>
+<span class="sd">            url (str): New avatar URL.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            User: Updated user instance with new avatar URL.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">repository</span><span class="o">.</span><span class="n">update_avatar_url</span><span class="p">(</span><span class="n">email</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="UserService.update_password">
+<a class="viewcode-back" href="../../../index.html#src.services.users.UserService.update_password">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">update_password</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">email</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">hashed_password</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update a user&#39;s password.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            email (str): Email of the user to update.</span>
+<span class="sd">            hashed_password (str): New hashed password to set.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            User: Updated user instance.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">repository</span><span class="o">.</span><span class="n">update_password</span><span class="p">(</span><span class="n">email</span><span class="p">,</span> <span class="n">hashed_password</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Contact Management REST API  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">src.services.users</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2025, mariashubna.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    </div>
+  </body>
+</html>
