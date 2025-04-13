@@ -106,3 +106,22 @@ async def test_get_user_by_id_not_found(user_service, mock_repository):
 
     assert user is None
     mock_repository.get_user_by_id.assert_awaited_once_with(999)
+
+
+def test_invalid_token(client):
+    headers = {"Authorization": "Bearer invalid_token"}
+    response = client.get("api/users/me", headers=headers)
+
+    assert response.status_code == 401
+    data = response.json()
+    assert data["detail"] == "Could not validate credentials"
+
+
+def test_valid_token(client, get_token):
+    token = get_token
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.get("api/users/me", headers=headers)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "username" in data

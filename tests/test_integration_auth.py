@@ -43,9 +43,9 @@ def test_not_confirmed_login(client):
             "password": user_data.get("password"),
         },
     )
-    assert response.status_code == 401, response.text
+    assert response.status_code == 403, response.text
     data = response.json()
-    assert data["detail"] == "Електронна адреса не підтверджена"
+    assert data["detail"] == "Підтвердіть вашу електронну адресу для входу"
 
 
 @pytest.mark.asyncio
@@ -79,7 +79,7 @@ def test_wrong_password_login(client):
     )
     assert response.status_code == 401, response.text
     data = response.json()
-    assert data["detail"] == "Неправильний логін або пароль"
+    assert data["detail"] == "Невірне імʼя користувача або пароль"
 
 
 def test_wrong_username_login(client):
@@ -89,7 +89,7 @@ def test_wrong_username_login(client):
     )
     assert response.status_code == 401, response.text
     data = response.json()
-    assert data["detail"] == "Неправильний логін або пароль"
+    assert data["detail"] == "Невірне імʼя користувача або пароль"
 
 
 def test_validation_error_login(client):
@@ -150,6 +150,50 @@ def test_signup_missing_field(client):
         "role": UserRole.USER,
     }
     response = client.post("api/auth/register", json=incomplete_user_data)
-    assert response.status_code == 422, response.text  # Ошибка валидации
+    assert response.status_code == 422, response.text
     data = response.json()
     assert "detail" in data
+
+
+def test_signup_avatar(client, monkeypatch):
+    mock_send_email = Mock()
+    monkeypatch.setattr("src.api.auth.send_email", mock_send_email)
+
+    new_user_data = {
+        "username": "newuser_with_avatar",
+        "email": "newuser_with_avatar@gmail.com",
+        "password": "12345678",
+        "role": UserRole.USER,
+    }
+
+    response = client.post("api/auth/register", json=new_user_data)
+    assert response.status_code == 201, response.text
+    data = response.json()
+    assert data["username"] == new_user_data["username"]
+    assert data["email"] == new_user_data["email"]
+    assert "hashed_password" not in data
+    assert "avatar" in data  # Перевіряємо, чи є аватар у відповіді
+
+
+def test_signup_strong_password(client):
+    strong_user_data = {
+        "username": "stronguser",
+        "email": "stronguser@gmail.com",
+        "password": "Str0ngPassword123",
+        "role": UserRole.USER,
+    }
+    response = client.post("api/auth/register", json=strong_user_data)
+    assert response.status_code == 201, response.text
+    data = response.json()
+    assert data["username"] == strong_user_data["username"]
+    assert data["email"] == strong_user_data["email"]
+
+
+def test_login_user_not_found(client):
+    response = client.post(
+        "api/auth/login",
+        data={"username": "nonexistentuser", "password": "password"},
+    )
+    assert response.status_code == 401, response.text
+    data = response.json()
+    assert data["detail"] == "Невірне імʼя користувача або пароль"

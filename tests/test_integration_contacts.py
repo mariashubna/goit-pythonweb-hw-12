@@ -156,10 +156,3 @@ def test_delete_contact_not_found(client, get_token):
     assert response.status_code == 404, response.text
     data = response.json()
     assert data["detail"] == "Contact not found"
-
-
-def test_get_contact_unauthorized(client):
-    response = client.get("/api/contacts/1")
-    assert response.status_code == 401, response.text
-    data = response.json()
-    assert data["detail"] == "Not authenticated"

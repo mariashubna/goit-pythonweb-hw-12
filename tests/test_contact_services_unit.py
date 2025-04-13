@@ -123,3 +123,14 @@ async def test_remove_contact_not_found(contact_repository, mock_session, user):
     assert result is None
     mock_session.delete.assert_not_awaited()
     mock_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_contact_by_id_not_found(contact_repository, mock_session, user):
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = None
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    contact = await contact_repository.get_contact_by_id(contact_id=999, user=user)
+
+    assert contact is None
