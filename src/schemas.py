@@ -127,10 +127,12 @@ class Token(BaseModel):
 
     Attributes:
         access_token (str): The JWT access token
+        refresh_token (str): The JWT refresh token
         token_type (str): Token type (typically "bearer")
     """
 
     access_token: str
+    refresh_token: str
     token_type: str
 
 

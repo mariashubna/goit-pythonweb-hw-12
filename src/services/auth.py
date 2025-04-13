@@ -56,28 +56,94 @@ class Hash:
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
-async def create_access_token(data: dict, expires_delta: Optional[int] = None):
-    """Create a new JWT access token.
+async def create_access_token(
+    data: dict, expires_delta: Optional[int] = None, scope: str = "access"
+):
+    """Create a new JWT token with a specific scope (access or refresh).
 
     Args:
-        data (dict): Data to encode in the token, typically includes user identifier.
-        expires_delta (Optional[int], optional): Token expiration time in seconds.
-            Defaults to None, using the JWT_EXPIRATION_SECONDS from settings.
+        data (dict): Payload data for the token (usually includes 'sub').
+        expires_delta (Optional[int]): Lifetime of the token in seconds.
+        scope (str): Token scope: 'access' or 'refresh'.
 
     Returns:
-        str: Encoded JWT token.
+        str: JWT token string.
     """
     to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.now(UTC) + timedelta(seconds=expires_delta)
+    if scope == "access":
+        expire = datetime.now(UTC) + timedelta(
+            seconds=expires_delta or settings.JWT_EXPIRATION_SECONDS
+        )
+    elif scope == "refresh":
+        expire = datetime.now(UTC) + timedelta(days=7)
     else:
-        expire = datetime.now(UTC) + timedelta(seconds=settings.JWT_EXPIRATION_SECONDS)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(
-        to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM
-    )
+        raise ValueError("Invalid token scope")
 
-    return encoded_jwt
+    to_encode.update({"exp": expire, "scope": scope})
+    return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+
+
+async def create_refresh_token(username: str) -> str:
+    """Create and store a refresh token for a user.
+
+    Args:
+        username (str): The username to associate with the refresh token.
+
+    Returns:
+        str: JWT refresh token.
+    """
+    token_data = {"sub": username}
+    refresh_token = await create_access_token(token_data, scope="refresh")
+
+    redis_key = f"refresh:{username}"
+    r.set(redis_key, refresh_token, ex=7 * 24 * 3600)  # 7 days
+    return refresh_token
+
+
+async def refresh_access_token(
+    refresh_token: str, db: Session = Depends(get_db)
+) -> str:
+    """Validate refresh token and return a new access token.
+
+    Args:
+        refresh_token (str): JWT refresh token.
+        db (Session): Database session.
+
+    Returns:
+        str: New access token.
+
+    Raises:
+        HTTPException: If token is invalid or expired.
+    """
+    try:
+        payload = jwt.decode(
+            refresh_token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]
+        )
+        if payload.get("scope") != "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Невірний тип токену"
+            )
+        username = payload.get("sub")
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Невірний або протермінований токен",
+        )
+
+    redis_key = f"refresh:{username}"
+    stored_token = r.get(redis_key)
+    if not stored_token or stored_token.decode("utf-8") != refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Недійсний або відкликаний токен",
+        )
+
+    user_service = UserService(db)
+    user = await user_service.get_user_by_username(username=username)
+    if not user:
+        raise HTTPException(status_code=404, detail="Користувача не знайдено")
+
+    return await create_access_token({"sub": username})
 
 
 async def get_current_user(
@@ -233,3 +299,27 @@ def get_current_admin_user(current_user: User = Depends(get_current_user)):
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Недостатньо прав доступу")
     return current_user
+
+
+# async def create_access_token(data: dict, expires_delta: Optional[int] = None):
+#     """Create a new JWT access token.
+
+#     Args:
+#         data (dict): Data to encode in the token, typically includes user identifier.
+#         expires_delta (Optional[int], optional): Token expiration time in seconds.
+#             Defaults to None, using the JWT_EXPIRATION_SECONDS from settings.
+
+#     Returns:
+#         str: Encoded JWT token.
+#     """
+#     to_encode = data.copy()
+#     if expires_delta:
+#         expire = datetime.now(UTC) + timedelta(seconds=expires_delta)
+#     else:
+#         expire = datetime.now(UTC) + timedelta(seconds=settings.JWT_EXPIRATION_SECONDS)
+#     to_encode.update({"exp": expire})
+#     encoded_jwt = jwt.encode(
+#         to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM
+#     )
+
+#     return encoded_jwt

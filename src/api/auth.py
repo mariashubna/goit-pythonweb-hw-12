@@ -15,7 +15,7 @@ from fastapi import (
     BackgroundTasks,
     Request,
 )
-
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
 from src.schemas import (
@@ -32,6 +32,10 @@ from src.services.auth import (
     get_email_from_token,
     create_password_reset_token,
     get_current_admin_user,
+    create_refresh_token,
+    refresh_access_token,
+    get_current_user,
+    r,
 )
 from src.services.users import UserService
 from src.database.db import get_db
@@ -100,43 +104,55 @@ async def register_user(
 
 @router.post("/login", response_model=Token)
 async def login_user(
-    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
 ):
-    """Authenticate a user and return a JWT token.
-
-    Validates username and password, checks email confirmation,
-    and returns a JWT token for authenticated requests.
-
-    Args:
-        form_data (OAuth2PasswordRequestForm): Form containing:
-            - username: User's username
-            - password: User's password
-        db (Session): Database session
-
-    Returns:
-        Token: JWT token response containing:
-            - access_token: JWT token string
-            - token_type: Token type (bearer)
-
-    Raises:
-        HTTPException:
-            - 401: Invalid credentials or unconfirmed email
-    """
+    """Authenticate user and return JWT access and refresh tokens."""
     user_service = UserService(db)
     user = await user_service.get_user_by_username(form_data.username)
-    if not user or not Hash().verify_password(form_data.password, user.hashed_password):
+
+    if user is None or not Hash().verify_password(
+        form_data.password, user.hashed_password
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Неправильний логін або пароль",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail="Невірне імʼя користувача або пароль",
         )
+
     if not user.confirmed:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Електронна адреса не підтверджена",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Підтвердіть вашу електронну адресу для входу",
         )
-    access_token = await create_access_token(data={"sub": user.username})
-    return {"access_token": access_token, "token_type": "bearer"}
+
+    access_token = await create_access_token({"sub": user.username})
+    refresh_token = await create_refresh_token(user.username)
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+    }
+
+
+@router.post("/refresh", response_model=Token)
+async def refresh_token(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Refresh access token using a valid refresh token from Authorization header."""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Refresh токен відсутній")
+
+    refresh_token_str = auth_header.split(" ")[1]
+    new_access_token = await refresh_access_token(refresh_token_str, db=db)
+
+    return {
+        "access_token": new_access_token,
+        "refresh_token": refresh_token_str,
+        "token_type": "bearer",
+    }
 
 
 @router.get("/confirmed_email/{token}")
@@ -319,3 +335,71 @@ async def reset_password(
 @router.get("/admin")
 def read_admin(current_user: User = Depends(get_current_admin_user)):
     return {"message": f"Вітаємо, {current_user.username}! Це адміністративний маршрут"}
+
+
+# @router.post("/logout")
+# # async def logout(current_user: User = Depends(get_current_user)):
+# async def logout(request: Request, current_user: User = Depends(get_current_user)):
+#
+#     # redis_key = f"refresh:{current_user.username}"
+#     # removed = r.delete(redis_key)
+#     token = request.headers.get("Authorization", "").replace("Bearer ", "")
+#     removed = r.delete(token)  # або твій метод типу remove_refresh_token(token)
+
+#     redis_key_refresh = f"refresh:{current_user.username}"
+#     removed_refresh = r.delete(redis_key_refresh)
+
+#     if not token:
+#         raise HTTPException(status_code=400, detail="Токен відсутній у запиті")
+
+#     if not removed:
+#         raise HTTPException(status_code=400, detail="Токен не знайдений у Redis")
+
+#     if removed_refresh:
+#         return {"message": "Користувач успішно вийшов із системи"}
+#     else:
+#         return JSONResponse(
+#             status_code=400,
+#             content={"detail": "Немає активного токена для відкликання"},
+#         )
+
+
+# @router.post("/login", response_model=Token)
+# async def login_user(
+#     form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
+# ):
+#     """Authenticate a user and return a JWT token.
+
+#     Validates username and password, checks email confirmation,
+#     and returns a JWT token for authenticated requests.
+
+#     Args:
+#         form_data (OAuth2PasswordRequestForm): Form containing:
+#             - username: User's username
+#             - password: User's password
+#         db (Session): Database session
+
+#     Returns:
+#         Token: JWT token response containing:
+#             - access_token: JWT token string
+#             - token_type: Token type (bearer)
+
+#     Raises:
+#         HTTPException:
+#             - 401: Invalid credentials or unconfirmed email
+#     """
+#     user_service = UserService(db)
+#     user = await user_service.get_user_by_username(form_data.username)
+#     if not user or not Hash().verify_password(form_data.password, user.hashed_password):
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Неправильний логін або пароль",
+#             headers={"WWW-Authenticate": "Bearer"},
+#         )
+#     if not user.confirmed:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Електронна адреса не підтверджена",
+#         )
+#     access_token = await create_access_token(data={"sub": user.username})
+#     return {"access_token": access_token, "token_type": "bearer"}

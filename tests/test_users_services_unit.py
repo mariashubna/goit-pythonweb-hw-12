@@ -96,3 +96,13 @@ async def test_change_password(user_service, mock_repository):
 
     assert user.email == email
     mock_repository.update_password.assert_awaited_once_with(email, new_password)
+
+
+@pytest.mark.asyncio
+async def test_get_user_by_id_not_found(user_service, mock_repository):
+    mock_repository.get_user_by_id = AsyncMock(return_value=None)
+
+    user = await user_service.get_user_by_id(999)
+
+    assert user is None
+    mock_repository.get_user_by_id.assert_awaited_once_with(999)
